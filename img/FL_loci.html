@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node {
+  stroke-width: 1.5px;
+}
+
+</style>
+<body>
+  <div>
+    <button class="pop" onclick="addAllPops()">Add Pop</button>
+    <button class="cloud" onclick="addCloud()">Add cloud</button>
+    <button class="hub" onclick="addAllHubs()">Add hub router</button>
+    <button class="branch" onclick="addBranch()">Add branch router</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+  <script>
+  var model = {};
+  var hubRouterIconW = 30, popPadding = 10;
+  model.svg = {W:800, H:800};
+  model.pops={};
+  model.pops.count = 4;
+  model.pops.loci = [];
+  model.pops.popDimensions=[];
+  model.pops.hubRouterCount = [4,2,3,2];
+
+  var fill = d3.scale.category10();
+
+  var nodes = [],
+      foci = [{x: 150, y: 150}, {x: 150, y: 400}, {x: 150, y: 550}];
+
+  var svg = d3.select("body").append("svg")
+      .attr("width", model.svg.W)
+      .attr("height", model.svg.H);
+
+  var force = d3.layout.force()
+      .nodes(nodes)
+      .links([])
+      .gravity(0)
+      .charge(-30)
+      .size([model.svg.W, model.svg.H])
+      .on("tick", tick);
+
+  var node = svg.selectAll("image");
+  var imageURL = ["router.png", "cloud.png", "branch.png"];
+
+  function tick(e) {
+    var k = .1 * e.alpha;
+
+    // Push nodes toward their designated focus.
+    nodes.forEach(function(o, i) {
+      var locus = getNodeLocus(o.level, o.column, o.order);
+      o.y += (locus.Y - o.y) * k;
+      o.x += (locus.X - o.x) * k;
+    });
+
+    node
+    .attr("x", function(d) { return d.x; })
+    .attr("y", function(d) { return d.y; });
+  }
+
+  function getNodeLocus(level, column, order){
+    var calcLocus = {};
+    switch(level){
+      case 0:
+        var locus = model.pops.loci[column];
+        var hubRouterCount = model.pops.hubRouterCount[column];
+        var pop = model.pops.popDimensions[column];
+        calcLocus={
+          X: (locus.X - pop.W/2) + (((pop.W-popPadding*2)/hubRouterCount)*(0.5+order)) + popPadding - hubRouterIconW/2,
+          Y: locus.Y
+        };
+        break;
+      case 1:
+        var locus = model.clouds.loci[column];
+        break;
+      case 2:
+        var locus = model.branches.loci[column];
+        break;
+      default:
+        break;
+    }
+    return calcLocus;
+  }
+
+  function addCloud(){
+    nodes.push({level: 1});
+    force.start();
+    node = node.data(nodes);
+
+    node.enter().append("image")
+        .attr("xlink:href", function(d){return imageURL[1]})
+        .attr("x", function(d) { return d.x; })
+        .attr("y", function(d) { return d.y; })
+        .attr("width", 100)
+        .attr("height", 100)
+        .call(force.drag);
+  }
+
+  function addAllHubs(){
+    var popIndex = 0;
+    for(var i=0; i<model.pops.hubRouterCount[popIndex]; i++){
+      addHub(popIndex, i);
+    }
+  }
+
+  function addHub(popIndex, order){
+    nodes.push({level: 0, column:popIndex, order:order});
+    force.start();
+    node = node.data(nodes);
+
+    node.enter().append("image")
+        .attr("xlink:href", function(d){return imageURL[0]})
+        .attr("x", function(d) { return d.x; })
+        .attr("y", function(d) { return d.y; })
+        .attr("width", hubRouterIconW)
+        .attr("height", hubRouterIconW)
+        .call(force.drag);
+  }
+
+  function addBranch(){
+    nodes.push({level: 2});
+    force.start();
+    node = node.data(nodes);
+
+    node.enter().append("image")
+        .attr("xlink:href", function(d){return imageURL[2]})
+        .attr("x", function(d) { return d.x; })
+        .attr("y", function(d) { return d.y; })
+        .attr("width", 75)
+        .attr("height", 75)
+        .call(force.drag);
+  }
+
+  function addAllPops(){
+    setLociOfPops();
+    setPopDimensions();
+    for (var i=0; i<model.pops.count; i++){
+      addPop(i);
+    }
+  }
+
+  function addPop(index, count){
+    var popDimensions = model.pops.popDimensions[index];
+    svg.append("rect")
+    .attr("x", popDimensions.X)
+    .attr("y", popDimensions.Y)
+    .attr("width", popDimensions.W)
+    .attr("height", popDimensions.H)
+    .style("fill", "aliceblue");
+  }  
+
+  function setPopDimensions(){
+    for (var i=0; i<model.pops.count; i++){
+      var popCount = model.pops.count;
+      var paddingX = 10, paddingY = 10;
+      var popX, popY, popW, popH;
+      var maxW = 220, maxH = 150;
+      var locus = model.pops.loci[i];
+      popW = (model.svg.W/popCount) - 2*paddingX;
+      popW = popW>maxW?maxW:popW;
+      popH = 100;
+      popX = locus.X - popW/2;
+      popY = locus.Y - popH/2;
+      model.pops.popDimensions[i] = ({X:popX, Y:popY, W:popW, H:popH});
+    }
+  }
+
+  function setLociOfPops(){
+    var count = model.pops.count;
+    for(var i=0; i<count; i++){
+      var columnW = model.svg.W/count;
+      var rowH = (model.svg.H/3);
+      model.pops.loci[i] = {
+        X: (i*columnW)+(columnW/2),
+        Y: (rowH/2) + (0*rowH)
+      }
+    }
+  }
+  // var times = 0;
+  // //Event which changes data
+  // var timeInterval = setInterval(function(){
+  //   times++;
+  //   if(times >= 6){
+  //     clearInterval(timeInterval);
+  //   }
+  //   nodes.push({id: ~~(Math.random() * foci.length)});
+  //   force.start();
+
+  //   node = node.data(nodes);
+
+  //   // node.enter().append("circle")
+  //   //     .attr("class", "node")
+  //   //     .attr("cx", function(d) { return d.x; })
+  //   //     .attr("cy", function(d) { return d.y; })
+  //   //     .attr("r", 8)
+  //   //     .style("fill", function(d) { return fill(d.id); })
+  //   //     .style("stroke", function(d) { return d3.rgb(fill(d.id)).darker(2); })
+  //   //     .call(force.drag);
+
+  //   node.enter().append("image")
+  //       .attr("xlink:href", function(d){return imageURL[d.id]})
+  //       .attr("x", function(d) { return d.x; })
+  //       .attr("y", function(d) { return d.y; })
+  //       .attr("width", 50)
+  //       .attr("height", 50)
+  //       .call(force.drag);
+  // }, 500);
+
+  </script>
+</body>

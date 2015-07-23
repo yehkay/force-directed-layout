@@ -1,0 +1,9 @@
+select.ak-skin-select.q{
+	margin-left: 30px;
+	font-size: 25px;
+}
+
+#add-link-btn{
+	position: absolute;
+	bottom: 0;
+}
